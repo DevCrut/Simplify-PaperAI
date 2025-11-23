@@ -7,7 +7,7 @@ services:
     restart: unless-stopped
 
     ports:
-      - "8000:8000"   # exposes http://localhost:8000
+      - "8000:8000"
 
     deploy:
       resources:
@@ -15,20 +15,26 @@ services:
           devices:
             - capabilities: ["gpu"]
 
-    # For older Docker versions, you might need this instead of `deploy`:
-    # runtime: nvidia
-    # environment:
-    #   NVIDIA_VISIBLE_DEVICES: all
-    #   NVIDIA_DRIVER_CAPABILITIES: compute,utility
+    # 👇 THIS is the important bit: CLI args for vLLM
+    command:
+      [
+        "--model", "Qwen/Qwen2.5-Coder-3B-Instruct",
+        "--dtype", "bfloat16",
+        "--max-model-len", "16384",             # 8k context instead of huge default
+        "--gpu-memory-utilization", "0.6",     # only use ~60% VRAM
+        "--kv-cache-dtype", "fp8",             # optional: smaller KV cache
+        "--max-num-seqs", "4",                # don't batch tons of requests
+        "--host", "0.0.0.0",
+        "--port", "8000"
+      ]
 
     environment:
-      VLLM_MODEL: "Qwen/Qwen2.5-Coder-3B-Instruct"
-      VLLM_HOST: "0.0.0.0"
-      VLLM_PORT: "8000"
-      VLLM_DTYPE: "float16"
-      VLLM_MAX_MODEL_LEN: "16384"
-      VLLM_GPU_MEMORY_UTILIZATION: "0.75"
-      # VLLM_TRUST_REMOTE_CODE: "1"  # uncomment if Qwen complains
+      APP_ENV: "prod"
+      PAPER_NON_INTERACTIVE: "1"
+      PAPER_FORCE_REBUILD: "1"
+      PAPER_DATA_DIR: "/data"
+      PAPER_LOCAL_REPO_DIR: "/data/creator-docs"
+      VLLM_USAGE_SOURCE: "docker-compose"
 
     volumes:
       - ./hf_cache:/root/.cache/huggingface
